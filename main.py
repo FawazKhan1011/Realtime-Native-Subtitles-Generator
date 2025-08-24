@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+import sys
+import io
 import soundcard as sc
 import numpy as np
 import whisper
@@ -20,6 +23,7 @@ WS_PORT = 8765           # WebSocket port
 # -------------------
 # Load Whisper
 # -------------------
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 print("🔄 Loading Whisper model...")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = whisper.load_model(MODEL_NAME, device=device)

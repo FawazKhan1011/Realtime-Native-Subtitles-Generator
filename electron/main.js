@@ -1,111 +1,121 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, ipcMain } = require("electron");
+const path = require("path");
+const { spawn } = require("child_process");
+const fs = require("fs");
 
 let mainWindow;
+let pythonProcess;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 150,
-    minWidth: 300,           // minimum window width
-    minHeight: 80,           // minimum window height
-    maxWidth: 1400,          // maximum window width  
-    maxHeight: 400,          // maximum window height
-    frame: false,            // no chrome
-    transparent: true,       // allows CSS semi-transparent bg
+    minWidth: 300,
+    minHeight: 80,
+    maxWidth: 1400,
+    maxHeight: 400,
+    frame: false,
+    transparent: true,
     alwaysOnTop: true,
-    resizable: true,         // enable resizing
+    resizable: true,
     movable: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       enableRemoteModule: false,
-      nodeIntegration: false   // Security best practice
-    }
+      nodeIntegration: false,
+    },
   });
 
-  mainWindow.loadFile('index.html');
-  
-  // Optional: Remember window size and position
-  mainWindow.on('resize', () => {
+  mainWindow.loadFile("index.html");
+
+  mainWindow.on("resize", () => {
     const [width, height] = mainWindow.getSize();
-    console.log(`Window resized to: ${width}x${height}`);
-    
-    // Send resize event to renderer if needed
-    mainWindow.webContents.send('window-resized', { width, height });
+    mainWindow.webContents.send("window-resized", { width, height });
   });
 
-  mainWindow.on('move', () => {
+  mainWindow.on("move", () => {
     const [x, y] = mainWindow.getPosition();
-    console.log(`Window moved to: ${x}, ${y}`);
-    
-    // Send move event to renderer if needed
-    mainWindow.webContents.send('window-moved', { x, y });
+    mainWindow.webContents.send("window-moved", { x, y });
   });
 
-  // Handle window closed
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     mainWindow = null;
   });
-
-  // Optional: Open DevTools in development
-  // mainWindow.webContents.openDevTools();
 }
 
-// IPC handlers for window controls
-ipcMain.handle('close-app', () => {
-  console.log('Close app requested');
-  app.quit();
-});
-
-ipcMain.handle('minimize-app', () => {
+// ---------- WINDOW CONTROLS ----------
+ipcMain.handle("close-app", () => app.quit());
+ipcMain.handle("minimize-app", () => mainWindow?.minimize());
+ipcMain.handle("maximize-app", () => {
   if (mainWindow) {
-    mainWindow.minimize();
+    mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
   }
 });
+ipcMain.handle("get-app-version", () => app.getVersion());
 
-ipcMain.handle('maximize-app', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
+// ---------- PYTHON SERVER STARTER ----------
+function startPythonServer() {
+  const script = path.join(__dirname, '../main.py');
+
+  // Detect venv Python (one level above electron/)
+  const venvPython = process.platform === 'win32'
+    ? path.join(__dirname, '../venv/Scripts/python.exe')
+    : path.join(__dirname, '../venv/bin/python');
+
+  console.log("🐍 Python script path:", script);
+  console.log("🔍 Checking venv path:", venvPython);
+
+  let pythonPath;
+
+  if (fs.existsSync(venvPython)) {
+    console.log("✅ Using virtualenv Python:", venvPython);
+    pythonPath = venvPython;
+  } else {
+    console.log("⚠️ venv not found, falling back to system python");
+    pythonPath = 'python'; // relies on PATH
   }
-});
 
-ipcMain.handle('get-app-version', () => {
-  return app.getVersion();
-});
+  pythonProcess = spawn(pythonPath, [script]);
 
+  pythonProcess.stdout.on('data', (data) => {
+    console.log(`[python] ${data}`);
+  });
+
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`[python error] ${data}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    console.log(`Python process exited with code ${code}`);
+  });
+}
+
+
+// ---------- APP LIFECYCLE ----------
 app.whenReady().then(() => {
   createWindow();
-  
-  // macOS: Re-create window when app is activated
-  app.on('activate', () => {
+  startPythonServer();
+
+  app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
 
-// Quit when all windows are closed
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+app.on("before-quit", () => {
+  if (pythonProcess) {
+    console.log("🛑 Killing Python process before exit...");
+    pythonProcess.kill();
   }
 });
 
-// Security: Prevent new window creation
-app.on('web-contents-created', (event, contents) => {
-  contents.on('new-window', (event, navigationUrl) => {
-    event.preventDefault();
-  });
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });
 
-// Optional: Handle before quit (for cleanup)
-app.on('before-quit', (event) => {
-  console.log('App is about to quit');
-  // You can add cleanup logic here if needed
-  // event.preventDefault(); // Uncomment to prevent quit and handle cleanup
+// Prevent external navigation
+app.on("web-contents-created", (event, contents) => {
+  contents.on("new-window", (event) => event.preventDefault());
 });

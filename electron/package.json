@@ -2,12 +2,46 @@
   "name": "urtitles-electron",
   "version": "1.0.0",
   "main": "main.js",
+  "description": "Realtime Native Subtitles Generator - Electron + Python Whisper",
+  "author": "Your Name",
+  "license": "MIT",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "dependencies": {
     "electron": "^31.0.0",
     "websocket": "^1.0.35",
     "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.yourname.urtitles",
+    "productName": "Urtitles",
+    "files": [
+      "main.js",
+      "index.html",
+      "renderer.js",
+      "preload.js",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../venv",
+        "to": "python/venv"
+      },
+      {
+        "from": "../main.py",
+        "to": "python/main.py"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    }
   }
 }
