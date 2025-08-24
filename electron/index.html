@@ -4,60 +4,296 @@
   <meta charset="UTF-8" />
   <title>Subtitles</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       background: transparent;
       overflow: hidden;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Arial, sans-serif;
       display: flex;
       justify-content: center;
-      align-items: flex-end;
+      align-items: center;
       height: 100vh;
+      width: 100vw;
     }
 
     #subtitle-container {
-      background: rgba(0, 0, 0, 0.3); /* semi-transparent dark bg */
-      padding: 10px 20px;
-      max-width: 90%;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: min(12px, 2vw);
+      padding: min(20px, 3vw) min(25px, 4vw);
+      width: 95%;
+      height: 90%;
+      max-width: 100%;
       text-align: center;
-      -webkit-app-region: drag;  /* makes this area draggable */
-      user-select: none;         /* prevents accidental text selection */
+      -webkit-app-region: drag;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      position: relative;
     }
 
     #subtitle-box {
-      font-size: 28px;
+      font-size: clamp(16px, 4vw, 48px);  /* Scales with window size */
       font-weight: bold;
       color: white;
-      text-shadow: 2px 2px 4px black;
-      line-height: 1.4em;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      line-height: 1.3em;
+      word-wrap: break-word;
+      hyphens: auto;
+      width: 100%;
       animation: fadein 0.3s ease;
     }
 
+    /* Exit button in top-right corner */
+    #exit-button {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      transition: all 0.2s ease;
+      opacity: 0.7;
+      z-index: 1000;
+    }
+
+    #exit-button:hover {
+      opacity: 1;
+    }
+
+    /* Connection status indicator */
+    #status-indicator {
+      position: absolute;
+      top: 15px;
+      left: 11px; /* Moved left to make room for exit button */
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff4444;
+      transition: background 0.3s ease;
+      -webkit-app-region: no-drag;
+    }
+
+    #status-indicator.connected {
+      background: #44ff44;
+    }
+
+    #status-indicator.connecting {
+      background: #ffaa44;
+      animation: pulse 1s infinite;
+    }
+
     @keyframes fadein {
-      from { opacity: 0; transform: translateY(20px); }
+      from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Responsive breakpoints */
+    @media (max-width: 400px) {
+      #subtitle-container {
+        padding: 10px 15px;
+        border-radius: 8px;
+      }
+      
+      #subtitle-box {
+        font-size: clamp(14px, 5vw, 24px);
+      }
+
+      #exit-button {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+        top: 8px;
+        right: 6px;
+      }
+
+      #status-indicator {
+        right: 32px;
+        width: 8px;
+        height: 8px;
+      }
+    }
+
+    @media (min-width: 1200px) {
+      #subtitle-container {
+        padding: 30px 40px;
+      }
+      
+      #subtitle-box {
+        font-size: clamp(24px, 3.5vw, 60px);
+      }
+
+      #exit-button {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+        top: 10px;
+        right: 10px;
+      }
+
+      #status-indicator {
+        right: 45px;
+      }
     }
   </style>
 </head>
 <body>
   <div id="subtitle-container">
-    <div id="subtitle-box"></div>
+    <div id="exit-button" title="Close Application">×</div>
+    <div id="status-indicator" id="status"></div>
+    <div id="subtitle-box">Connecting to subtitle server...</div>
   </div>
 
   <script>
-    const ws = new WebSocket("ws://localhost:8765");
+    let ws = null;
+    const subtitleBox = document.getElementById('subtitle-box');
+    const statusIndicator = document.getElementById('status-indicator');
+    const exitButton = document.getElementById('exit-button');
 
-    ws.onmessage = (event) => {
-      const text = event.data;
+    // Exit button functionality
+    exitButton.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.closeApp) {
+        window.electronAPI.closeApp();
+      } else {
+        // Fallback for testing in browser
+        console.log('Close app requested');
+        window.close();
+      }
+    });
 
-      // Split into 2 lines max
-      const words = text.split(" ");
-      let line1 = words.slice(0, Math.ceil(words.length / 2)).join(" ");
-      let line2 = words.slice(Math.ceil(words.length / 2)).join(" ");
+    function updateStatus(status) {
+      statusIndicator.className = status;
+    }
 
-      const box = document.getElementById("subtitle-box");
-      box.innerHTML = line2 ? `${line1}<br>${line2}` : line1;
-    };
+    function connectWebSocket() {
+      updateStatus('connecting');
+      
+      ws = new WebSocket("ws://localhost:8765");
+
+      ws.onopen = () => {
+        console.log("[client] Connected to WebSocket server");
+        updateStatus('connected');
+        subtitleBox.textContent = "Ready for subtitles...";
+      };
+
+      ws.onmessage = (event) => {
+        const text = event.data.trim();
+        
+        if (!text) {
+          subtitleBox.innerHTML = "";
+          return;
+        }
+
+        // Smart line breaking based on window width
+        const words = text.split(" ");
+        const windowWidth = window.innerWidth;
+        
+        let displayText;
+        if (words.length > 6 && windowWidth > 400) {
+          // Split longer text into 2 lines for wider windows
+          const midPoint = Math.ceil(words.length / 2);
+          const line1 = words.slice(0, midPoint).join(" ");
+          const line2 = words.slice(midPoint).join(" ");
+          displayText = `${line1}<br>${line2}`;
+        } else {
+          displayText = text;
+        }
+
+        subtitleBox.innerHTML = displayText;
+        
+        // Re-trigger animation
+        subtitleBox.style.animation = 'none';
+        void subtitleBox.offsetHeight; // Force reflow
+        subtitleBox.style.animation = 'fadein 0.3s ease';
+      };
+
+      ws.onclose = () => {
+        console.log("[client] WebSocket closed");
+        updateStatus('');
+        subtitleBox.textContent = "Connection lost. Reconnecting...";
+        
+        // Auto-reconnect after 2 seconds
+        setTimeout(connectWebSocket, 2000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("[client] WebSocket error", err);
+        updateStatus('');
+      };
+    }
+
+    // Initialize connection
+    connectWebSocket();
+
+    // Handle window resize for responsive text
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        console.log(`Window resized to: ${window.innerWidth}x${window.innerHeight}`);
+        // Re-process current subtitle for new window size
+        if (subtitleBox.textContent && subtitleBox.textContent !== "Ready for subtitles..." && subtitleBox.textContent !== "Connecting to subtitle server...") {
+          // Trigger re-layout
+          const currentText = subtitleBox.textContent;
+          if (currentText.length > 0) {
+            ws && ws.readyState === WebSocket.OPEN && ws.send('refresh');
+          }
+        }
+      }, 100);
+    });
+
+    // Optional: Add keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // ESC key to close app
+      if (e.key === 'Escape') {
+        exitButton.click();
+        return;
+      }
+
+      if (e.ctrlKey) {
+        switch(e.key) {
+          case '=':
+          case '+':
+            // Increase font size
+            document.documentElement.style.fontSize = (parseFloat(getComputedStyle(document.documentElement).fontSize) * 1.1) + 'px';
+            e.preventDefault();
+            break;
+          case '-':
+            // Decrease font size
+            document.documentElement.style.fontSize = (parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.9) + 'px';
+            e.preventDefault();
+            break;
+          case '0':
+            // Reset font size
+            document.documentElement.style.fontSize = '';
+            e.preventDefault();
+            break;
+          case 'q':
+            // Ctrl+Q to quit
+            exitButton.click();
+            e.preventDefault();
+            break;
+        }
+      }
+    });
   </script>
 </body>
 </html>
