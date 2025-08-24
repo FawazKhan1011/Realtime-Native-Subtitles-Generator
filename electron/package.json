@@ -1,0 +1,13 @@
+{
+  "name": "urtitles-electron",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^31.0.0",
+    "websocket": "^1.0.35",
+    "ws": "^8.17.0"
+  }
+}

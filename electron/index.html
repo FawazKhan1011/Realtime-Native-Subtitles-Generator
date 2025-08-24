@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Subtitles</title>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      height: 100vh;
+    }
+
+    #subtitle-container {
+      background: rgba(0, 0, 0, 0.3); /* semi-transparent dark bg */
+      padding: 10px 20px;
+      max-width: 90%;
+      text-align: center;
+      -webkit-app-region: drag;  /* makes this area draggable */
+      user-select: none;         /* prevents accidental text selection */
+    }
+
+    #subtitle-box {
+      font-size: 28px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px black;
+      line-height: 1.4em;
+      animation: fadein 0.3s ease;
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="subtitle-container">
+    <div id="subtitle-box"></div>
+  </div>
+
+  <script>
+    const ws = new WebSocket("ws://localhost:8765");
+
+    ws.onmessage = (event) => {
+      const text = event.data;
+
+      // Split into 2 lines max
+      const words = text.split(" ");
+      let line1 = words.slice(0, Math.ceil(words.length / 2)).join(" ");
+      let line2 = words.slice(Math.ceil(words.length / 2)).join(" ");
+
+      const box = document.getElementById("subtitle-box");
+      box.innerHTML = line2 ? `${line1}<br>${line2}` : line1;
+    };
+  </script>
+</body>
+</html>
