@@ -3,7 +3,7 @@
 YourTitles is a desktop application that generates **real-time subtitles for any system audio**.
 It works seamlessly with YouTube, video calls, online lectures, movies, music, audio or any media without built-in captions.
 
-Built with **Python (Whisper + SoundCard)** and **Electron.js**, it combines the power of AI speech recognition with a sleek, always-on-top floating window.
+Built with **Electron.js** and **Python (Whisper + SoundCard)** , it combines the power of AI speech recognition with a sleek, Desktop floating window.
 
 ---
 
@@ -32,8 +32,8 @@ Many videos, meetings, and online streams lack proper subtitles, making them ina
 
 ## 🛠️ Tech Stack
 
-* **Python** – Whisper (speech-to-text), SoundCard (loopback audio), WebSockets.
 * **Electron.js** – Desktop wrapper, floating window, UI controls.
+* **Python** – Whisper (speech-to-text), SoundCard (loopback audio), WebSockets.
 * **HTML + CSS + JS** – Frontend styling & animations.
 
 ---
