@@ -106,6 +106,8 @@ YourTitles/
 * 📑 **Subtitle Logging** – Save transcripts to a file for later review.
 * 🎥 **Streaming/Caption Overlay** – OBS plugin for live streaming with subtitles.
 * 🤝 **Accessibility Features** – Auto-detect spoken language, text-to-speech for translations.
+* 🤖 **Custom Model** – Build and use a custom more powerfull model for recognition and translation.
+* ⚡ **Performance** – Improve efficiency and optimization.
 
 ---
 
