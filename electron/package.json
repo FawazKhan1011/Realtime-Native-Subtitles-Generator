@@ -1,5 +1,5 @@
 {
-  "name": "urtitles-electron",
+  "name": "yourtitles-electron",
   "version": "1.0.0",
   "main": "main.js",
   "description": "Realtime Native Subtitles Generator - Electron + Python Whisper",
@@ -10,16 +10,16 @@
     "build": "electron-builder"
   },
   "dependencies": {
-    "electron": "^31.0.0",
     "websocket": "^1.0.35",
     "ws": "^8.17.0"
   },
   "devDependencies": {
+    "electron": "^31.0.0",
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.yourname.urtitles",
-    "productName": "Urtitles",
+    "appId": "com.yourname.yourtitles",
+    "productName": "YourTitles",
     "files": [
       "main.js",
       "index.html",
@@ -29,19 +29,29 @@
     ],
     "extraResources": [
       {
-        "from": "../venv",
-        "to": "python/venv"
-      },
-      {
         "from": "../main.py",
         "to": "python/main.py"
+      },
+      {
+        "from": "../venv",
+        "to": "python/venv"
       }
     ],
     "directories": {
       "output": "dist"
     },
+    "asar": false,
+    "asarUnpack": [
+      "python/**"
+    ],
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "artifactName": "YourTitles.exe"
     }
   }
 }

@@ -6,6 +6,7 @@ const fs = require("fs");
 let mainWindow;
 let pythonProcess;
 
+// ---------- CREATE MAIN WINDOW ----------
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
@@ -27,7 +28,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile("index.html");
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
 
   mainWindow.on("resize", () => {
     const [width, height] = mainWindow.getSize();
@@ -54,43 +55,42 @@ ipcMain.handle("maximize-app", () => {
 });
 ipcMain.handle("get-app-version", () => app.getVersion());
 
-// ---------- PYTHON SERVER STARTER ----------
+// ---------- PYTHON BACKEND STARTER ----------
 function startPythonServer() {
-  const script = path.join(__dirname, '../main.py');
-
-  // Detect venv Python (one level above electron/)
-  const venvPython = process.platform === 'win32'
-    ? path.join(__dirname, '../venv/Scripts/python.exe')
-    : path.join(__dirname, '../venv/bin/python');
-
-  console.log("🐍 Python script path:", script);
-  console.log("🔍 Checking venv path:", venvPython);
+  const isDev = !app.isPackaged;
 
   let pythonPath;
+  let scriptPath;
 
-  if (fs.existsSync(venvPython)) {
-    console.log("✅ Using virtualenv Python:", venvPython);
-    pythonPath = venvPython;
+  if (isDev) {
+    // Dev mode: local Python + script
+    scriptPath = path.join(__dirname, "../main.py");
+    pythonPath = process.platform === "win32"
+      ? path.join(__dirname, "../venv/Scripts/python.exe")
+      : path.join(__dirname, "../venv/bin/python");
   } else {
-    console.log("⚠️ venv not found, falling back to system python");
-    pythonPath = 'python'; // relies on PATH
+    // Packaged mode: script inside exe folder
+    const exeDir = path.dirname(process.execPath);
+    scriptPath = path.join(exeDir, "python", "main.py");
+    pythonPath = process.platform === "win32"
+      ? path.join(exeDir, "python", "venv", "Scripts", "python.exe")
+      : path.join(exeDir, "python", "venv/bin/python");
   }
 
-  pythonProcess = spawn(pythonPath, [script]);
+  if (!fs.existsSync(pythonPath)) {
+    console.warn("⚠️ Python interpreter not found, using system python");
+    pythonPath = "python"; // fallback to system Python
+  }
 
-  pythonProcess.stdout.on('data', (data) => {
-    console.log(`[python] ${data}`);
-  });
+  console.log("🐍 Python interpreter:", pythonPath);
+  console.log("📄 Python script path:", scriptPath);
 
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`[python error] ${data}`);
-  });
+  pythonProcess = spawn(pythonPath, [scriptPath]);
 
-  pythonProcess.on('close', (code) => {
-    console.log(`Python process exited with code ${code}`);
-  });
+  pythonProcess.stdout.on("data", (data) => console.log(`[python] ${data}`));
+  pythonProcess.stderr.on("data", (data) => console.error(`[python error] ${data}`));
+  pythonProcess.on("close", (code) => console.log(`Python exited with code ${code}`));
 }
-
 
 // ---------- APP LIFECYCLE ----------
 app.whenReady().then(() => {
@@ -98,9 +98,7 @@ app.whenReady().then(() => {
   startPythonServer();
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
