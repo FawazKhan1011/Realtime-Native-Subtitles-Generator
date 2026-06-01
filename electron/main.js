@@ -64,14 +64,14 @@ function startPythonServer() {
 
   if (isDev) {
     // Dev mode: local Python + script
-    scriptPath = path.join(__dirname, "../main.py");
+    scriptPath = path.join(__dirname, "../main_faster.py"); // or main.py — change here to switch
     pythonPath = process.platform === "win32"
       ? path.join(__dirname, "../venv/Scripts/python.exe")
       : path.join(__dirname, "../venv/bin/python");
   } else {
     // Packaged mode: script inside exe folder
     const exeDir = path.dirname(process.execPath);
-    scriptPath = path.join(exeDir, "python", "main.py");
+    scriptPath = path.join(exeDir, "python", "main_faster.py"); // or main.py
     pythonPath = process.platform === "win32"
       ? path.join(exeDir, "python", "venv", "Scripts", "python.exe")
       : path.join(exeDir, "python", "venv/bin/python");
@@ -85,17 +85,36 @@ function startPythonServer() {
   console.log("🐍 Python interpreter:", pythonPath);
   console.log("📄 Python script path:", scriptPath);
 
-  pythonProcess = spawn(pythonPath, [scriptPath]);
+  return new Promise((resolve) => {
+    pythonProcess = spawn(pythonPath, [scriptPath]);
 
-  pythonProcess.stdout.on("data", (data) => console.log(`[python] ${data}`));
-  pythonProcess.stderr.on("data", (data) => console.error(`[python error] ${data}`));
-  pythonProcess.on("close", (code) => console.log(`Python exited with code ${code}`));
+    pythonProcess.stdout.on("data", (data) => {
+      const text = data.toString();
+      console.log(`[python] ${text}`);
+      // resolve when backend prints the readiness token
+      if (text.includes("WS_READY") || text.includes("PY_READY")) {
+        resolve();
+      }
+    });
+
+    pythonProcess.stderr.on("data", (data) => console.error(`[python error] ${data}`));
+    pythonProcess.on("close", (code) => console.log(`Python exited with code ${code}`));
+
+    // safety fallback: resolve after 7s if no ready token received
+    setTimeout(() => {
+      console.warn("⚠️ Python backend did not report readiness in time — continuing");
+      resolve();
+    }, 7000);
+  });
 }
 
 // ---------- APP LIFECYCLE ----------
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // start python backend first, wait for readiness (or timeout)
+  await startPythonServer();
+
+  // then create the UI window so the frontend sees backend ready
   createWindow();
-  startPythonServer();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
